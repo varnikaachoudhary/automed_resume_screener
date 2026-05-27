@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<title>Results</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+  font-family:'Poppins',sans-serif;
+  background:linear-gradient(135deg,#f5ebe0,#d6ccc2);
+  padding:20px;
+}
+
+/* NAVBAR */
+
+.navbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#b08968;
+  padding:15px 30px;
+  border-radius:12px;
+  margin-bottom:30px;
+}
+
+.logo{
+  color:white;
+  font-size:20px;
+  font-weight:600;
+}
+
+.nav-links a{
+  color:white;
+  text-decoration:none;
+  margin-left:20px;
+  font-weight:500;
+}
+
+.nav-links a:hover{
+  color:#f5ebe0;
+}
+
+/* TITLE */
+
+h1{
+  text-align:center;
+  color:#6f4e37;
+  margin-bottom:30px;
+}
+
+/* CARDS */
+
+.container{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:20px;
+  max-width:1100px;
+  margin:auto;
+}
+
+.card{
+  background:white;
+  padding:20px;
+  border-radius:15px;
+  box-shadow:0 10px 20px rgba(0,0,0,0.1);
+  transition:0.3s;
+}
+
+.card:hover{
+  transform:translateY(-5px);
+}
+
+.progress{
+  width:100%;
+  height:10px;
+  background:#eee;
+  border-radius:10px;
+  overflow:hidden;
+  margin-top:10px;
+}
+
+.progress-bar{
+  height:100%;
+  background:#b08968;
+}
+
+.tag{
+  display:inline-block;
+  margin-top:10px;
+  padding:6px 12px;
+  border-radius:20px;
+  background:#7f5539;
+  color:white;
+  font-size:13px;
+}
+
+.skills{
+  margin-top:12px;
+}
+
+.skill{
+  display:inline-block;
+  background:#f5ebe0;
+  color:#6f4e37;
+  padding:5px 10px;
+  margin:4px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+}
+
+/* CHART */
+
+.chart-container{
+  width:85%;
+  margin:40px auto;
+  background:white;
+  padding:20px;
+  border-radius:15px;
+  box-shadow:0 10px 20px rgba(0,0,0,0.1);
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+
+<div class="navbar">
+
+  <div class="logo">ResumeAI</div>
+
+  <div class="nav-links">
+    <a href="screen.html">Dashboard</a>
+    <a href="results.html">Results</a>
+    <a href="history.html">History</a>
+    <a href="index.html">Logout</a>
+  </div>
+
+</div>
+
+<!-- TITLE -->
+
+<h1>Candidate Results</h1>
+
+<!-- RESULTS -->
+
+<div class="container" id="results"></div>
+
+<!-- CHART -->
+
+<div class="chart-container">
+
+  <canvas id="skillsChart"></canvas>
+
+</div>
+
+<!-- FIREBASE -->
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+
+const firebaseConfig = {
+
+  apiKey: "AIzaSyBj0OS-b6oMX21RGInDrgI-UcNxxXj6wOs",
+  authDomain: "resume-screening-system-54c01.firebaseapp.com",
+  projectId: "resume-screening-system-54c01",
+  storageBucket: "resume-screening-system-54c01.firebasestorage.app",
+  messagingSenderId: "52477918180",
+  appId: "1:52477918180:web:e3eeb6806c6b3671f125f1"
+
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+
+const container = document.getElementById("results");
+
+/* FETCH DATA */
+
+db.collection("screenings")
+.orderBy("timestamp","desc")
+.limit(1)
+.get()
+
+.then(snapshot=>{
+
+  if(snapshot.empty){
+
+    container.innerHTML = "<h2>No Data Found</h2>";
+
+    return;
+
+  }
+
+  const data = snapshot.docs[0].data();
+
+  // 🔥 NEW DATA
+  const results = data.analyzedResults;
+
+  // 🔥 CHECK
+  if(!results || results.length === 0){
+
+    container.innerHTML = "<h2>No Analysis Found</h2>";
+
+    return;
+
+  }
+
+  // SORT
+  results.sort((a,b)=>b.score-a.score);
+
+  // DISPLAY
+  results.forEach((candidate,index)=>{
+
+    let badge = "";
+    let style = "";
+
+    if(index === 0){
+
+      badge = "🥇 Top Candidate";
+
+      style = "border:2px solid gold;";
+
+    }
+
+    container.innerHTML += `
+
+      <div class="card" style="${style}">
+
+        <h3>
+          ${badge || "Rank " + (index+1)}
+        </h3>
+
+        <br>
+
+        <p>
+          <strong>${candidate.name}</strong>
+        </p>
+
+        <br>
+
+        <p>
+          Match Score:
+          <strong>${candidate.score}%</strong>
+        </p>
+
+        <div class="progress">
+
+          <div class="progress-bar"
+          style="width:${candidate.score}%">
+          </div>
+
+        </div>
+
+        <p class="tag">
+
+          ${candidate.recommendation}
+
+        </p>
+
+        <div class="skills">
+
+          <strong>Skills Found:</strong>
+
+          <br><br>
+
+          ${
+            candidate.matchedSkills
+            .map(skill=>`<span class="skill">${skill}</span>`)
+            .join("")
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+  });
+
+  /* CHART */
+
+  const topCandidate = results[0];
+
+  const ctx =
+  document.getElementById('skillsChart');
+
+  new Chart(ctx, {
+
+    type:'bar',
+
+    data:{
+
+      labels:topCandidate.matchedSkills,
+
+      datasets:[{
+
+        label:'Skill Match %',
+
+        data:topCandidate.matchedSkills.map(()=>topCandidate.score),
+
+        borderWidth:1
+
+      }]
+
+    },
+
+    options:{
+
+      responsive:true,
+
+      scales:{
+        y:{
+          beginAtZero:true,
+          max:100
+        }
+      }
+
+    }
+
+  });
+
+})
+
+.catch(err=>{
+
+  console.error(err);
+
+  alert(err.message);
+
+});
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Candidates</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <!-- PDF READER -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+  <!-- DOCX READER -->
+  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+
+  <style>
+
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family:'Poppins',sans-serif;
+    }
+
+    body{
+      background:linear-gradient(135deg,#f5ebe0,#d6ccc2);
+      padding:10px 20px;
+    }
+
+    /* NAVBAR */
+
+    .navbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background:#b08968;
+      padding:15px 30px;
+      border-radius:12px;
+      margin-bottom:20px;
+    }
+
+    .logo{
+      font-size:20px;
+      font-weight:600;
+      color:white;
+    }
+
+    .nav-links a{
+      margin-left:20px;
+      text-decoration:none;
+      color:white;
+      font-weight:500;
+    }
+
+    .nav-links a:hover{
+      color:#f5ebe0;
+    }
+
+    /* CONTAINER */
+
+    .container{
+      max-width:900px;
+      margin:auto;
+      background:white;
+      padding:30px;
+      border-radius:20px;
+      box-shadow:0 15px 30px rgba(0,0,0,0.1);
+    }
+
+    h1{
+      text-align:center;
+      margin-bottom:20px;
+      color:#6f4e37;
+    }
+
+    .form-group{
+      margin-bottom:20px;
+    }
+
+    label{
+      display:block;
+      margin-bottom:6px;
+      color:#6f4e37;
+      font-weight:500;
+    }
+
+    input,select,textarea{
+      width:100%;
+      padding:10px;
+      border-radius:8px;
+      border:1px solid #ccc;
+      outline:none;
+    }
+
+    textarea{
+      resize:none;
+      height:100px;
+    }
+
+    .btn{
+      width:100%;
+      padding:12px;
+      background:#b08968;
+      color:white;
+      border:none;
+      border-radius:10px;
+      font-size:16px;
+      cursor:pointer;
+    }
+
+    .btn:hover{
+      background:#7f5539;
+    }
+
+    /* LOADER */
+
+    .spinner{
+      width:40px;
+      height:40px;
+      border:4px solid #ddd;
+      border-top:4px solid #b08968;
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+      margin:auto;
+    }
+
+    @keyframes spin{
+      0%{transform:rotate(0deg);}
+      100%{transform:rotate(360deg);}
+    }
+
+  </style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+
+<div class="navbar">
+
+  <div class="logo">ResumeAI</div>
+
+  <div class="nav-links">
+    <a href="screen.html">Dashboard</a>
+    <a href="results.html">Results</a>
+    <a href="history.html">History</a>
+    <a href="index.html">Logout</a>
+  </div>
+
+</div>
+
+<!-- MAIN -->
+
+<div class="container">
+
+  <h1>Candidate Screening Dashboard</h1>
+
+  <div class="form-group">
+    <label>HR/Admin Name</label>
+    <input type="text" id="adminName" placeholder="Enter your name">
+  </div>
+
+  <div class="form-group">
+
+    <label>Job Role</label>
+
+    <select id="jobRole" onchange="fillDescription()">
+
+      <option value="">Select Role</option>
+
+      <option value="frontend">Frontend Developer</option>
+
+      <option value="backend">Backend Developer</option>
+
+      <option value="data">Data Scientist</option>
+
+    </select>
+
+  </div>
+
+  <div class="form-group">
+
+    <label>Job Description</label>
+
+    <textarea id="jobDesc"></textarea>
+
+  </div>
+
+  <div class="form-group">
+
+    <label>Upload Resumes</label>
+
+    <input type="file" id="resumeInput" multiple>
+
+  </div>
+
+  <button class="btn" onclick="analyze()">
+    Analyze Candidates
+  </button>
+
+</div>
+
+<!-- LOADER -->
+
+<div id="loader" style="display:none;text-align:center;margin-top:20px;">
+
+  <div class="spinner"></div>
+
+  <p style="color:#6f4e37;">
+    Reading and analyzing resumes...
+  </p>
+
+</div>
+
+<!-- TOAST -->
+
+<div id="toast" style="
+position:fixed;
+top:20px;
+right:20px;
+background:#6f4e37;
+color:white;
+padding:12px 20px;
+border-radius:8px;
+display:none;
+z-index:1000;
+">
+</div>
+
+<!-- FIREBASE -->
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+
+const firebaseConfig = {
+
+  apiKey: "AIzaSyBj0OS-b6oMX21RGInDrgI-UcNxxXj6wOs",
+  authDomain: "resume-screening-system-54c01.firebaseapp.com",
+  projectId: "resume-screening-system-54c01",
+  storageBucket: "resume-screening-system-54c01.firebasestorage.app",
+  messagingSenderId: "52477918180",
+  appId: "1:52477918180:web:e3eeb6806c6b3671f125f1"
+
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+
+function showToast(message){
+
+  const toast = document.getElementById("toast");
+
+  toast.innerText = message;
+
+  toast.style.display = "block";
+
+  setTimeout(()=>{
+    toast.style.display = "none";
+  },3000);
+
+}
+
+/* JOB DESCRIPTION */
+
+function fillDescription(){
+
+  const role = document.getElementById('jobRole').value;
+
+  const desc = document.getElementById('jobDesc');
+
+  if(role === 'frontend'){
+
+    desc.value =
+    'Looking for Frontend Developer with HTML, CSS, JavaScript and React skills';
+
+  }
+
+  else if(role === 'backend'){
+
+    desc.value =
+    'Looking for Backend Developer with Node.js, APIs and Database knowledge';
+
+  }
+
+  else if(role === 'data'){
+
+    desc.value =
+    'Looking for Data Scientist with Python, ML and Data Analysis skills';
+
+  }
+
+  else{
+
+    desc.value = "";
+
+  }
+
+}
+
+/* SKILLS */
+
+const skills = [
+  "html",
+  "css",
+  "javascript",
+  "react",
+  "firebase",
+  "node",
+  "api",
+  "sql",
+  "python",
+  "machine learning",
+  "data analysis"
+];
+
+/* RECOMMENDATION */
+
+function getRecommendation(score){
+
+  if(score >= 85){
+    return "Highly Recommended";
+  }
+
+  else if(score >= 70){
+    return "Recommended";
+  }
+
+  else{
+    return "Needs Review";
+  }
+
+}
+
+/* ANALYZE */
+
+async function analyze(){
+
+  const name =
+  document.getElementById("adminName").value;
+
+  const role =
+  document.getElementById("jobRole").value;
+
+  const desc =
+  document.getElementById("jobDesc").value;
+
+  const files =
+  document.getElementById("resumeInput").files;
+
+  if(!name || !role || !desc || files.length === 0){
+
+    showToast("Fill all fields and upload resumes");
+
+    return;
+
+  }
+
+  document.getElementById("loader").style.display = "block";
+
+  let analyzedResults = [];
+
+  for(let file of files){
+
+    let text = "";
+
+    // PDF
+
+    if(file.name.endsWith(".pdf")){
+
+      text = await readPDF(file);
+
+    }
+
+    // DOCX
+
+    else if(file.name.endsWith(".docx")){
+
+      text = await readDOCX(file);
+
+    }
+
+    text = text.toLowerCase();
+
+    let score = 0;
+
+    let matchedSkills = [];
+
+    skills.forEach(skill=>{
+
+      if(text.includes(skill)){
+
+        score += 10;
+
+        matchedSkills.push(skill);
+
+      }
+
+    });
+
+    if(score > 100){
+      score = 100;
+    }
+
+    analyzedResults.push({
+
+      name:file.name,
+
+      score:score,
+
+      matchedSkills:matchedSkills,
+
+      recommendation:getRecommendation(score)
+
+    });
+
+  }
+
+  // SAVE TO FIRESTORE
+
+  db.collection("screenings").add({
+
+    adminName:name,
+
+    jobRole:role,
+
+    jobDescription:desc,
+
+    analyzedResults:analyzedResults,
+
+    timestamp:new Date()
+
+  })
+
+  .then(()=>{
+
+    showToast("Analysis Complete");
+
+    setTimeout(()=>{
+
+      window.location.href = "results.html";
+
+    },2000);
+
+  })
+
+  .catch(err=>{
+
+    alert(err.message);
+
+  });
+
+}
+
+/* READ PDF */
+
+async function readPDF(file){
+
+  return new Promise((resolve,reject)=>{
+
+    const reader = new FileReader();
+
+    reader.onload = async function(){
+
+      const typedarray =
+      new Uint8Array(this.result);
+
+      const pdf =
+      await pdfjsLib.getDocument(typedarray).promise;
+
+      let text = "";
+
+      for(let i=1;i<=pdf.numPages;i++){
+
+        const page = await pdf.getPage(i);
+
+        const content =
+        await page.getTextContent();
+
+        const strings =
+        content.items.map(item=>item.str);
+
+        text += strings.join(" ");
+
+      }
+
+      resolve(text);
+
+    };
+
+    reader.readAsArrayBuffer(file);
+
+  });
+
+}
+
+/* READ DOCX */
+
+async function readDOCX(file){
+
+  return new Promise((resolve,reject)=>{
+
+    const reader = new FileReader();
+
+    reader.onload = function(event){
+
+      mammoth.extractRawText({
+
+        arrayBuffer:event.target.result
+
+      })
+
+      .then(result=>{
+
+        resolve(result.value);
+
+      });
+
+    };
+
+    reader.readAsArrayBuffer(file);
+
+  });
+
+}
+
+</script>
+
+</body>
+</html>
